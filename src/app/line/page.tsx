@@ -39,6 +39,15 @@ type LineToast = {
   body: string
 }
 
+type LinePushEvent = {
+  targetUserId: string
+  messages: LineMessage[]
+  createdAt: string
+  eventId: string
+}
+
+const LINE_PUSH_CHANNEL = "actflow-line-push"
+
 function getMessagePreview(message: LineMessage) {
   if (message.type === "text") return message.text.replace(/\s+/g, " ").trim()
   if (message.type === "flex") return message.altText
@@ -134,6 +143,18 @@ function LinePageInner() {
   const notificationStartedAtRef = useRef(0)
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const toastSeqRef = useRef(0)
+
+  function pushLineMessages(targetUserId: string, messages: LineMessage[]) {
+    if (typeof window === "undefined") return
+    const channel = new BroadcastChannel(LINE_PUSH_CHANNEL)
+    channel.postMessage({
+      targetUserId,
+      messages,
+      createdAt: new Date().toISOString(),
+      eventId: `line-push-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    } satisfies LinePushEvent)
+    channel.close()
+  }
 
   useEffect(() => {
     if (!isEmbed) return
@@ -251,6 +272,30 @@ function LinePageInner() {
       })),
     ])
   }, [activeUser.userId, getNotificationsFor, notifications, showLineToast])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const channel = new BroadcastChannel(LINE_PUSH_CHANNEL)
+    channel.onmessage = event => {
+      const payload = event.data as LinePushEvent | undefined
+      if (!payload || payload.targetUserId !== activeUser.userId) return
+      if (shownNotificationIdsRef.current.has(payload.eventId)) return
+
+      shownNotificationIdsRef.current.add(payload.eventId)
+      payload.messages.forEach(message => showLineToast(message))
+      setChatHistory(prev => [
+        ...prev,
+        {
+          id: payload.eventId,
+          messages: payload.messages,
+          isUser: false,
+          timestamp: new Date(payload.createdAt),
+        },
+      ])
+    }
+
+    return () => channel.close()
+  }, [activeUser.userId, showLineToast])
 
   useEffect(() => {
     const el = chatScrollRef.current
@@ -418,12 +463,34 @@ function LinePageInner() {
 
         const coach = coaches.find(c => c.id === courses.find(cr => cr.id === course.id)?.coachId)
         if (coach) {
+          const pendingCount = leaveRequests.filter(leave =>
+            leave.status === "pending" &&
+            students.find(item => item.id === leave.studentId)?.coachId === coach.id
+          ).length + 1
+
           addNotification({
             targetUserId: coach.lineUserId,
             targetRole: "coach",
-            message: `${student.name} 請假了 ${course.title}（${course.dayLabel} ${course.time}）`,
+            message: `今日待確認請假 ${pendingCount} 件`,
             type: "leave_request",
           })
+          pushLineMessages(coach.lineUserId, [
+            {
+              type: "flex",
+              altText: "今日待確認請假",
+              cards: [{
+                title: "今日待確認請假",
+                body: `${pendingCount} 件`,
+                footer: `${student.name} 新增一筆請假，請進入 LIFF 查看明細`,
+                color: "#111827",
+              }],
+            },
+            {
+              type: "button_list",
+              text: "",
+              buttons: [{ label: "前往 LIFF 確認", href: "/liff/coach/leaves", style: "primary" }],
+            },
+          ])
         }
 
         setTimeout(() => {

@@ -2,11 +2,13 @@
 
 import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
-import { UserRound, Calendar, FileX, Users } from "lucide-react"
+import { UserRound, Calendar, ClipboardList, FileX, Users } from "lucide-react"
 import { useMockData } from "@/context/MockDataContext"
 
 const STUDENT_NAV = [
   { href: "/liff/schedule", icon: Calendar, label: "預約課程" },
+  { href: "/liff/classes", icon: ClipboardList, label: "我的課程" },
+  { href: "/liff/leave", icon: FileX, label: "請假申請" },
   { href: "/liff/onboarding", icon: UserRound, label: "個人資料" },
 ]
 
