@@ -1,6 +1,6 @@
 "use client"
 
-import React from "react"
+import React, { Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 
 const STATUS_TIME = "09:41"
@@ -99,7 +99,7 @@ export function PhoneFrame({
   )
 }
 
-export function MobileShell({ children }: { children: React.ReactNode }) {
+function MobileShellInner({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams()
   const isEmbed = searchParams.get("embed") === "1"
 
@@ -107,6 +107,14 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
     <PhoneFrame embed={isEmbed}>
       {children}
     </PhoneFrame>
+  )
+}
+
+export function MobileShell({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense>
+      <MobileShellInner>{children}</MobileShellInner>
+    </Suspense>
   )
 }
 

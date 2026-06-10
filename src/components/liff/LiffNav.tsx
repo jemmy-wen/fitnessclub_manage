@@ -1,5 +1,6 @@
 "use client"
 
+import { Suspense } from "react"
 import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
 import { UserRound, Calendar, ClipboardList, FileX, Users } from "lucide-react"
@@ -20,6 +21,14 @@ const COACH_NAV = [
 ]
 
 export function LiffNav() {
+  return (
+    <Suspense>
+      <LiffNavInner />
+    </Suspense>
+  )
+}
+
+function LiffNavInner() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const { activeUser, coaches, leaveRequests, students } = useMockData()

@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
-import { useMemo } from "react"
+import { Suspense, useMemo } from "react"
 import { useMockData } from "@/context/MockDataContext"
 import { format, isPast } from "date-fns"
 import { zhTW } from "date-fns/locale"
@@ -23,6 +23,14 @@ function dateFromParts(date: string, time: string) {
 }
 
 export default function StudentClassesPage() {
+  return (
+    <Suspense>
+      <StudentClassesContent />
+    </Suspense>
+  )
+}
+
+function StudentClassesContent() {
   const {
     activeUser,
     students,

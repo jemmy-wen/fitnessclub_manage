@@ -1,14 +1,8 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
 import "./globals.css";
 import { MockDataProvider } from "@/context/MockDataContext";
 import { Toaster } from "@/components/ui/sonner";
 import { GlobalNav } from "@/components/GlobalNav";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "Actflow — 運動工作室管理平台",
@@ -21,7 +15,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-TW" className={`${geistSans.variable} h-full antialiased`}>
+    <html lang="zh-TW" className="h-full antialiased">
       <body className="min-h-full flex flex-col">
         <MockDataProvider>
           {children}

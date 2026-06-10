@@ -4,9 +4,17 @@ import { MobileShell } from "@/components/MobileShell"
 import { LiffNav } from "@/components/liff/LiffNav"
 import { useMockData } from "@/context/MockDataContext"
 import { usePathname, useSearchParams } from "next/navigation"
-import { useEffect } from "react"
+import { Suspense, useEffect } from "react"
 
 export default function LiffLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense>
+      <LiffLayoutInner>{children}</LiffLayoutInner>
+    </Suspense>
+  )
+}
+
+function LiffLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const { activeUser, availableUsers, setActiveUser } = useMockData()

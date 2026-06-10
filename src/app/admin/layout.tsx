@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { DesktopSidebar, MobileNavbar } from "@/components/admin/Sidebar"
 import { AdminBottomNav } from "@/components/admin/BottomNav"
@@ -32,6 +32,14 @@ function StatusBar() {
 }
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense>
+      <AdminLayoutInner>{children}</AdminLayoutInner>
+    </Suspense>
+  )
+}
+
+function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const [mobilePreview, setMobilePreview] = useState(false)
   const searchParams = useSearchParams()
   const isEmbed = searchParams.get("embed") === "1"

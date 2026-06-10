@@ -1,5 +1,6 @@
 "use client"
 
+import { Suspense } from "react"
 import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
 
@@ -10,6 +11,14 @@ const LINKS = [
 ]
 
 export function GlobalNav() {
+  return (
+    <Suspense>
+      <GlobalNavInner />
+    </Suspense>
+  )
+}
+
+function GlobalNavInner() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
