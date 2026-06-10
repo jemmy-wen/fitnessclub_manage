@@ -13,7 +13,7 @@ export function RoleSwitcher() {
   }
 
   return (
-    <div className="bg-[#1e2535] px-3 py-2 flex items-center gap-1.5 overflow-x-auto border-b border-[#2a3247]">
+    <div className="bg-[#1e2535] px-3 py-2 flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden border-b border-[#2a3247]">
       <span className="text-[#8892a4] text-[10px] shrink-0 font-medium">模擬身份：</span>
       {availableUsers.map(user => (
         <button

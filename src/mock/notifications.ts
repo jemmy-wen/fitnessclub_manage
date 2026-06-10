@@ -3,7 +3,7 @@ export interface Notification {
   targetUserId: string
   targetRole: "student" | "coach" | "admin"
   message: string
-  type: "leave_request" | "booking_confirmed" | "reminder" | "low_sessions" | "binding_complete" | "leave_confirmed"
+  type: "leave_request" | "booking_confirmed" | "reminder" | "low_sessions" | "binding_complete" | "leave_confirmed" | "leave_rejected" | "broadcast" | "course_reminder"
   createdAt: string
   read: boolean
 }

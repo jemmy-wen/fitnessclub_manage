@@ -1,6 +1,6 @@
 "use client"
 
-import React, { createContext, useContext, useState, useCallback } from "react"
+import React, { createContext, useContext, useState, useCallback, useEffect } from "react"
 import { coaches as initialCoaches, Coach } from "@/mock/coaches"
 import { students as initialStudents, Student, PaymentStatus } from "@/mock/students"
 import { courses as initialCourses, enrollments as initialEnrollments, Course, Enrollment } from "@/mock/courses"
@@ -9,6 +9,30 @@ import { notifications as initialNotifications, Notification } from "@/mock/noti
 
 export type ActiveRole = "student" | "coach" | "admin"
 export type ActiveUser = { role: ActiveRole; userId: string; name: string; entityId: string }
+export type CalendarItemType = "class" | "leave"
+export type WeeklyAvailability = {
+  id: string
+  coachId: string
+  dayOfWeek: number
+  startTime: string
+  endTime: string
+  location: string
+  capacity: number
+  enabled: boolean
+}
+export type CoachCalendarItem = {
+  id: string
+  coachId: string
+  date: string
+  startTime: string
+  endTime: string
+  title: string
+  type: CalendarItemType
+  location?: string
+  capacity?: number
+  enrolledCount?: number
+  color?: string
+}
 
 const DEFAULT_USERS: ActiveUser[] = [
   { role: "student", userId: "Ustudent001", name: "王小明", entityId: "s1" },
@@ -16,6 +40,61 @@ const DEFAULT_USERS: ActiveUser[] = [
   { role: "coach", userId: "Ucoach001", name: "陳志豪", entityId: "c1" },
   { role: "coach", userId: "Ucoach002", name: "林美華", entityId: "c2" },
   { role: "admin", userId: "Uadmin001", name: "管理者", entityId: "admin" },
+]
+
+const DEFAULT_WEEKLY_AVAILABILITY: WeeklyAvailability[] = [
+  { id: "wa1", coachId: "c1", dayOfWeek: 1, startTime: "18:00", endTime: "21:00", location: "訓練室 A", capacity: 1, enabled: true },
+  { id: "wa2", coachId: "c1", dayOfWeek: 3, startTime: "18:00", endTime: "21:00", location: "訓練室 A", capacity: 1, enabled: true },
+  { id: "wa3", coachId: "c1", dayOfWeek: 6, startTime: "09:00", endTime: "12:00", location: "訓練室 B", capacity: 2, enabled: true },
+  { id: "wa4", coachId: "c2", dayOfWeek: 2, startTime: "10:00", endTime: "13:00", location: "瑜伽教室", capacity: 4, enabled: true },
+  { id: "wa5", coachId: "c2", dayOfWeek: 4, startTime: "10:00", endTime: "13:00", location: "瑜伽教室", capacity: 4, enabled: true },
+  { id: "wa6", coachId: "c2", dayOfWeek: 6, startTime: "14:00", endTime: "17:00", location: "瑜伽教室", capacity: 6, enabled: false },
+]
+
+function toDateKey(offsetDays: number) {
+  const date = new Date()
+  date.setDate(date.getDate() + offsetDays)
+  return date.toISOString().slice(0, 10)
+}
+
+const DEFAULT_CALENDAR_ITEMS: CoachCalendarItem[] = [
+  {
+    id: "ci1",
+    coachId: "c1",
+    date: toDateKey(1),
+    startTime: "19:00",
+    endTime: "20:00",
+    title: "王小明 個人訓練",
+    type: "class",
+    location: "訓練室 A",
+    capacity: 1,
+    enrolledCount: 1,
+    color: "#2563EB",
+  },
+  {
+    id: "ci2",
+    coachId: "c2",
+    date: toDateKey(1),
+    startTime: "18:30",
+    endTime: "19:30",
+    title: "林教練 場地使用",
+    type: "class",
+    location: "訓練室 A",
+    capacity: 4,
+    enrolledCount: 3,
+    color: "#059669",
+  },
+  {
+    id: "ci3",
+    coachId: "c1",
+    date: toDateKey(4),
+    startTime: "18:00",
+    endTime: "21:00",
+    title: "私人行程",
+    type: "leave",
+    location: "訓練室 A",
+    color: "#DC2626",
+  },
 ]
 
 interface MockDataContextType {
@@ -26,6 +105,8 @@ interface MockDataContextType {
   enrollments: Enrollment[]
   leaveRequests: LeaveRequest[]
   notifications: Notification[]
+  weeklyAvailability: WeeklyAvailability[]
+  coachCalendarItems: CoachCalendarItem[]
   // Active user (LINE simulator)
   activeUser: ActiveUser
   availableUsers: ActiveUser[]
@@ -34,6 +115,7 @@ interface MockDataContextType {
   updateStudentPayment: (studentId: string, status: PaymentStatus) => void
   adjustStudentSessions: (studentId: string, delta: number) => void
   addStudent: (student: Omit<Student, "id">) => void
+  addCoach: (coach: Omit<Coach, "id">) => void
   bindStudent: (studentId: string, lineUserId: string) => void
   generateInviteCode: () => string
   // Course ops
@@ -41,6 +123,9 @@ interface MockDataContextType {
   updateCourse: (courseId: string, updates: Partial<Course>) => void
   deleteCourse: (courseId: string) => void
   enrollStudent: (studentId: string, courseId: string) => void
+  addCoachCalendarItem: (item: Omit<CoachCalendarItem, "id">) => void
+  deleteCoachCalendarItem: (itemId: string) => void
+  updateWeeklyAvailability: (availabilityId: string, updates: Partial<WeeklyAvailability>) => void
   // Leave ops
   addLeaveRequest: (req: Omit<LeaveRequest, "id" | "createdAt">) => void
   updateLeaveStatus: (leaveId: string, status: LeaveStatus, note?: string) => void
@@ -54,6 +139,27 @@ interface MockDataContextType {
 }
 
 const MockDataContext = createContext<MockDataContextType | null>(null)
+const SYNC_CHANNEL = "actflow-mock-data"
+const LEAVES_SYNC_KEY = "actflow:leaveRequests"
+const NOTIFICATIONS_SYNC_KEY = "actflow:notifications"
+
+function readSyncedList<T>(key: string): T[] | null {
+  if (typeof window === "undefined") return null
+  try {
+    const raw = window.localStorage.getItem(key)
+    return raw ? JSON.parse(raw) as T[] : null
+  } catch {
+    return null
+  }
+}
+
+function publishSyncedList<T>(key: string, value: T[]) {
+  if (typeof window === "undefined") return
+  window.localStorage.setItem(key, JSON.stringify(value))
+  const channel = new BroadcastChannel(SYNC_CHANNEL)
+  channel.postMessage({ key, value })
+  channel.close()
+}
 
 export function MockDataProvider({ children }: { children: React.ReactNode }) {
   const [coachList, setCoachList] = useState<Coach[]>(initialCoaches)
@@ -62,8 +168,43 @@ export function MockDataProvider({ children }: { children: React.ReactNode }) {
   const [enrollmentList, setEnrollmentList] = useState<Enrollment[]>(initialEnrollments)
   const [leaveList, setLeaveList] = useState<LeaveRequest[]>(initialLeaves)
   const [notifList, setNotifList] = useState<Notification[]>(initialNotifications)
+  const [weeklyAvailability, setWeeklyAvailability] = useState<WeeklyAvailability[]>(DEFAULT_WEEKLY_AVAILABILITY)
+  const [coachCalendarItems, setCoachCalendarItems] = useState<CoachCalendarItem[]>(DEFAULT_CALENDAR_ITEMS)
   const [activeUser, setActiveUser] = useState<ActiveUser>(DEFAULT_USERS[0])
+  const [availableUsers, setAvailableUsers] = useState<ActiveUser[]>(DEFAULT_USERS)
   const [settings, setSettings] = useState({ reminderHoursBefore: 24, lowSessionsThreshold: 3 })
+
+  useEffect(() => {
+    const syncedLeaves = readSyncedList<LeaveRequest>(LEAVES_SYNC_KEY)
+    const syncedNotifications = readSyncedList<Notification>(NOTIFICATIONS_SYNC_KEY)
+    queueMicrotask(() => {
+      if (syncedLeaves) setLeaveList(syncedLeaves)
+      if (syncedNotifications) setNotifList(syncedNotifications)
+    })
+
+    const channel = new BroadcastChannel(SYNC_CHANNEL)
+    channel.onmessage = event => {
+      if (event.data?.key === LEAVES_SYNC_KEY) setLeaveList(event.data.value)
+      if (event.data?.key === NOTIFICATIONS_SYNC_KEY) setNotifList(event.data.value)
+    }
+
+    function handleStorage(event: StorageEvent) {
+      if (event.key === LEAVES_SYNC_KEY) {
+        const next = readSyncedList<LeaveRequest>(LEAVES_SYNC_KEY)
+        if (next) setLeaveList(next)
+      }
+      if (event.key === NOTIFICATIONS_SYNC_KEY) {
+        const next = readSyncedList<Notification>(NOTIFICATIONS_SYNC_KEY)
+        if (next) setNotifList(next)
+      }
+    }
+
+    window.addEventListener("storage", handleStorage)
+    return () => {
+      channel.close()
+      window.removeEventListener("storage", handleStorage)
+    }
+  }, [])
 
   const updateStudentPayment = useCallback((studentId: string, status: PaymentStatus) => {
     setStudentList(prev => prev.map(s => s.id === studentId ? { ...s, paymentStatus: status } : s))
@@ -77,7 +218,28 @@ export function MockDataProvider({ children }: { children: React.ReactNode }) {
 
   const addStudent = useCallback((student: Omit<Student, "id">) => {
     const id = `s${Date.now()}`
-    setStudentList(prev => [...prev, { ...student, id }])
+    const newStudent = { ...student, id }
+    setStudentList(prev => [...prev, newStudent])
+    if (newStudent.lineUserId) {
+      setAvailableUsers(prev => [...prev, {
+        role: "student",
+        userId: newStudent.lineUserId ?? `Ustudent${Date.now()}`,
+        name: newStudent.name,
+        entityId: id,
+      }])
+    }
+  }, [])
+
+  const addCoach = useCallback((coach: Omit<Coach, "id">) => {
+    const id = `c${Date.now()}`
+    const newCoach = { ...coach, id }
+    setCoachList(prev => [...prev, newCoach])
+    setAvailableUsers(prev => [...prev, {
+      role: "coach",
+      userId: newCoach.lineUserId,
+      name: newCoach.name,
+      entityId: id,
+    }])
   }, [])
 
   const bindStudent = useCallback((studentId: string, lineUserId: string) => {
@@ -114,16 +276,42 @@ export function MockDataProvider({ children }: { children: React.ReactNode }) {
     setStudentList(prev => prev.map(s => s.id === studentId ? { ...s, remainingSessions: Math.max(0, s.remainingSessions - 1) } : s))
   }, [enrollmentList])
 
+  const addCoachCalendarItem = useCallback((item: Omit<CoachCalendarItem, "id">) => {
+    setCoachCalendarItems(prev => [...prev, { ...item, id: `ci${Date.now()}` }])
+  }, [])
+
+  const deleteCoachCalendarItem = useCallback((itemId: string) => {
+    setCoachCalendarItems(prev => prev.filter(item => item.id !== itemId))
+  }, [])
+
+  const updateWeeklyAvailability = useCallback((availabilityId: string, updates: Partial<WeeklyAvailability>) => {
+    setWeeklyAvailability(prev => prev.map(item =>
+      item.id === availabilityId ? { ...item, ...updates } : item
+    ))
+  }, [])
+
   const addLeaveRequest = useCallback((req: Omit<LeaveRequest, "id" | "createdAt">) => {
-    setLeaveList(prev => [...prev, { ...req, id: `l${Date.now()}`, createdAt: new Date().toISOString() }])
+    setLeaveList(prev => {
+      const next = [...prev, { ...req, id: `l${Date.now()}`, createdAt: new Date().toISOString() }]
+      publishSyncedList(LEAVES_SYNC_KEY, next)
+      return next
+    })
   }, [])
 
   const updateLeaveStatus = useCallback((leaveId: string, status: LeaveStatus, note?: string) => {
-    setLeaveList(prev => prev.map(l => l.id === leaveId ? { ...l, status, coachNote: note ?? l.coachNote } : l))
+    setLeaveList(prev => {
+      const next = prev.map(l => l.id === leaveId ? { ...l, status, coachNote: note ?? l.coachNote } : l)
+      publishSyncedList(LEAVES_SYNC_KEY, next)
+      return next
+    })
   }, [])
 
   const addNotification = useCallback((notif: Omit<Notification, "id" | "createdAt" | "read">) => {
-    setNotifList(prev => [...prev, { ...notif, id: `n${Date.now()}`, createdAt: new Date().toISOString(), read: false }])
+    setNotifList(prev => {
+      const next = [...prev, { ...notif, id: `n${Date.now()}`, createdAt: new Date().toISOString(), read: false }]
+      publishSyncedList(NOTIFICATIONS_SYNC_KEY, next)
+      return next
+    })
   }, [])
 
   const getNotificationsFor = useCallback((userId: string) => {
@@ -133,7 +321,11 @@ export function MockDataProvider({ children }: { children: React.ReactNode }) {
   }, [notifList])
 
   const markNotificationRead = useCallback((id: string) => {
-    setNotifList(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
+    setNotifList(prev => {
+      const next = prev.map(n => n.id === id ? { ...n, read: true } : n)
+      publishSyncedList(NOTIFICATIONS_SYNC_KEY, next)
+      return next
+    })
   }, [])
 
   const updateSettings = useCallback((s: Partial<typeof settings>) => {
@@ -148,18 +340,24 @@ export function MockDataProvider({ children }: { children: React.ReactNode }) {
       enrollments: enrollmentList,
       leaveRequests: leaveList,
       notifications: notifList,
+      weeklyAvailability,
+      coachCalendarItems,
       activeUser,
-      availableUsers: DEFAULT_USERS,
+      availableUsers,
       setActiveUser,
       updateStudentPayment,
       adjustStudentSessions,
       addStudent,
+      addCoach,
       bindStudent,
       generateInviteCode,
       addCourse,
       updateCourse,
       deleteCourse,
       enrollStudent,
+      addCoachCalendarItem,
+      deleteCoachCalendarItem,
+      updateWeeklyAvailability,
       addLeaveRequest,
       updateLeaveStatus,
       addNotification,

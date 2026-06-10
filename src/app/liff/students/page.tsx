@@ -4,10 +4,21 @@ import { useState } from "react"
 import { useMockData } from "@/context/MockDataContext"
 import { Search, ChevronLeft, AlertCircle } from "lucide-react"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 
 export default function CoachStudentsPage() {
   const { coaches, students, leaveRequests, activeUser } = useMockData()
+  const searchParams = useSearchParams()
   const [search, setSearch] = useState("")
+  const isEmbed = searchParams.get("embed") === "1"
+  const liffHref = (path: string) => {
+    if (!isEmbed) return path
+    const params = new URLSearchParams()
+    params.set("embed", "1")
+    params.set("role", activeUser.role)
+    params.set("userId", activeUser.userId)
+    return `${path}?${params.toString()}`
+  }
 
   const coach = coaches.find(c => c.lineUserId === activeUser.userId)
 
@@ -34,7 +45,7 @@ export default function CoachStudentsPage() {
       {/* Header */}
       <div className="bg-white px-4 pt-12 pb-3 border-b border-gray-100">
         <div className="flex items-center gap-3 mb-3">
-          <Link href="/liff" className="p-1 -ml-1">
+          <Link href={liffHref("/liff/coach")} className="p-1 -ml-1">
             <ChevronLeft className="w-5 h-5 text-gray-500" />
           </Link>
           <h1 className="text-lg font-bold text-gray-900">我的學員</h1>

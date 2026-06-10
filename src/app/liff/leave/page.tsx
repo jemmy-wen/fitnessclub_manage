@@ -5,6 +5,7 @@ import { useMockData } from "@/context/MockDataContext"
 import { format } from "date-fns"
 import { CheckCircle, ChevronLeft } from "lucide-react"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 
 type Step = "form" | "success"
 
@@ -12,6 +13,7 @@ const DAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"]
 
 export default function LeavePage() {
   const { students, courses, enrollments, coaches, activeUser, addLeaveRequest, addNotification } = useMockData()
+  const searchParams = useSearchParams()
   const [step, setStep] = useState<Step>("form")
   const [selectedCourseId, setSelectedCourseId] = useState("")
   const [date, setDate] = useState("")
@@ -19,6 +21,15 @@ export default function LeavePage() {
   const [error, setError] = useState("")
 
   const student = students.find(s => s.lineUserId === activeUser.userId)
+  const isEmbed = searchParams.get("embed") === "1"
+  const liffHref = (path: string) => {
+    if (!isEmbed) return path
+    const params = new URLSearchParams()
+    params.set("embed", "1")
+    params.set("role", activeUser.role)
+    params.set("userId", activeUser.userId)
+    return `${path}?${params.toString()}`
+  }
   const myEnrollmentIds = enrollments
     .filter(e => e.studentId === student?.id && e.status === "confirmed")
     .map(e => e.courseId)
@@ -65,7 +76,7 @@ export default function LeavePage() {
       <div className="flex-1 flex items-center justify-center px-6 text-center">
         <div>
           <p className="text-gray-500 mb-4">請先完成身份綁定</p>
-          <Link href="/liff/onboarding" className="bg-[#06C755] text-white rounded-xl px-6 py-3 text-sm font-medium">
+          <Link href={liffHref("/liff/onboarding")} className="bg-[#06C755] text-white rounded-xl px-6 py-3 text-sm font-medium">
             前往綁定
           </Link>
         </div>
@@ -98,7 +109,7 @@ export default function LeavePage() {
         <p className="text-xs text-gray-400 mb-6">確認後您將收到 LINE 通知</p>
 
         <Link
-          href="/liff"
+          href={liffHref("/liff/schedule")}
           className="w-full bg-[#06C755] text-white rounded-2xl py-3.5 font-semibold text-sm text-center block"
         >
           返回首頁
@@ -111,7 +122,7 @@ export default function LeavePage() {
     <div className="flex-1 flex flex-col bg-gray-50">
       {/* Nav */}
       <div className="bg-white px-4 py-3.5 flex items-center gap-3 border-b border-gray-100">
-        <Link href="/liff" className="p-1 -ml-1">
+        <Link href={liffHref("/liff/schedule")} className="p-1 -ml-1">
           <ChevronLeft className="w-5 h-5 text-gray-500" />
         </Link>
         <div>

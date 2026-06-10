@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { DesktopSidebar, MobileNavbar } from "@/components/admin/Sidebar"
 import { AdminBottomNav } from "@/components/admin/BottomNav"
 import { Monitor, Smartphone } from "lucide-react"
@@ -32,6 +33,8 @@ function StatusBar() {
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [mobilePreview, setMobilePreview] = useState(false)
+  const searchParams = useSearchParams()
+  const isEmbed = searchParams.get("embed") === "1"
 
   const toggle = (
     <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-xl p-1 shadow-sm shrink-0">
@@ -95,10 +98,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div className="min-h-screen bg-gray-50 flex">
       <DesktopSidebar />
       <div className="flex-1 flex flex-col min-w-0">
-        <div className="flex items-center justify-between px-4 pt-3 pb-1 border-b border-gray-100 bg-white">
-          <span className="text-xs text-gray-400">後台管理系統</span>
-          {toggle}
-        </div>
+        {!isEmbed && (
+          <div className="flex items-center justify-between px-4 pt-3 pb-1 border-b border-gray-100 bg-white">
+            <span className="text-xs text-gray-400">後台管理系統</span>
+            {toggle}
+          </div>
+        )}
         <MobileNavbar />
         <main className="flex-1 p-4 md:p-6">{children}</main>
       </div>

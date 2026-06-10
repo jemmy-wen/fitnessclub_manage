@@ -111,7 +111,7 @@ export const courses: Course[] = [
     startTime: c6Start,
     endTime: getNextWeekdayEnd(c6Start, 90),
     capacity: 12,
-    enrolledCount: 9,
+    enrolledCount: 10,
     location: "瑜伽教室",
     dayOfWeek: 6,
     color: "#F59E0B",
@@ -127,4 +127,5 @@ export const enrollments: Enrollment[] = [
   { id: "e6", studentId: "s3", courseId: "cr4", status: "confirmed", createdAt: "2024-03-02" },
   { id: "e7", studentId: "s6", courseId: "cr4", status: "confirmed", createdAt: "2024-03-02" },
   { id: "e8", studentId: "s3", courseId: "cr5", status: "confirmed", createdAt: "2024-03-03" },
+  { id: "e9", studentId: "s1", courseId: "cr6", status: "confirmed", createdAt: "2024-03-01" },
 ]
